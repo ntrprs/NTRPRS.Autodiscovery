@@ -1,5 +1,6 @@
 # NTRPRS.Autodiscovery
 Simple automatic (local) network discovery in C#
+
 Based on https://github.com/rix0rrr/beacon
 
 *Beacon* is a small C# library that helps remove some of the user annoyances involved in writing client-server applications: finding the address of the server to connect to (because messing around putting in IP addresses is so much fun, eh?)
