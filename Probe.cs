@@ -6,13 +6,13 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 
-namespace BeaconLib
+namespace NTRPRS.Autodiscovery
 {
     /// <summary>
     /// Counterpart of the beacon, searches for beacons
     /// </summary>
     /// <remarks>
-    /// The beacon list event will not be raised on your main thread!
+    /// The beacon list event will not be raised on your main _thread!
     /// </remarks>
     public class Probe : IDisposable
     {
@@ -23,42 +23,42 @@ namespace BeaconLib
 
         public event Action<IEnumerable<BeaconLocation>> BeaconsUpdated;
 
-        private readonly Thread thread;
-        private readonly EventWaitHandle waitHandle = new EventWaitHandle(false, EventResetMode.AutoReset);
-        private readonly UdpClient udp = new UdpClient();
-        private IEnumerable<BeaconLocation> currentBeacons = Enumerable.Empty<BeaconLocation>();
+        private readonly Thread _thread;
+        private readonly EventWaitHandle _waitHandle = new EventWaitHandle(false, EventResetMode.AutoReset);
+        private readonly UdpClient _udp = new UdpClient();
+        private IEnumerable<BeaconLocation> _currentBeacons = Enumerable.Empty<BeaconLocation>();
 
-        private bool running = true;
+        private bool _running = true;
 
         public Probe(string beaconType)
         {
-            udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
 
             BeaconType = beaconType;
-            thread = new Thread(BackgroundLoop) { IsBackground = true };
+            _thread = new Thread(BackgroundLoop) { IsBackground = true };
 
-            udp.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
+            _udp.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
             try 
             {
-                udp.AllowNatTraversal(true);
+                _udp.AllowNatTraversal(true);
             }
             catch (SocketException ex)
             {
                 Debug.WriteLine("Error switching on NAT traversal: " + ex.Message);
             }
 
-            udp.BeginReceive(ResponseReceived, null);
+            _udp.BeginReceive(ResponseReceived, null);
         }
 
         public void Start()
         {
-            thread.Start();
+            _thread.Start();
         }
 
         private void ResponseReceived(IAsyncResult ar)
         {
             var remote = new IPEndPoint(IPAddress.Any, 0);
-            var bytes = udp.EndReceive(ar, ref remote);
+            var bytes = _udp.EndReceive(ar, ref remote);
 
             var typeBytes = Beacon.Encode(BeaconType).ToList();
             Debug.WriteLine(string.Join(", ", typeBytes.Select(_ => (char)_)));
@@ -66,9 +66,9 @@ namespace BeaconLib
             {
                 try
                 {
-                    var portBytes = bytes.Skip(typeBytes.Count()).Take(2).ToArray();
+                    var portBytes = bytes.Skip(typeBytes.Count).Take(2).ToArray();
                     var port      = (ushort)IPAddress.NetworkToHostOrder((short)BitConverter.ToUInt16(portBytes, 0));
-                    var payload   = Beacon.Decode(bytes.Skip(typeBytes.Count() + 2));
+                    var payload   = Beacon.Decode(bytes.Skip(typeBytes.Count + 2));
                     NewBeacon(new BeaconLocation(new IPEndPoint(remote.Address, port), payload, DateTime.Now));
                 }
                 catch (Exception ex)
@@ -77,17 +77,17 @@ namespace BeaconLib
                 }
             }
 
-            udp.BeginReceive(ResponseReceived, null);
+            _udp.BeginReceive(ResponseReceived, null);
         }
 
-        public string BeaconType { get; private set; }
+        public string BeaconType { get; }
 
         private void BackgroundLoop()
         {
-            while (running)
+            while (_running)
             {
                 BroadcastProbe();
-                waitHandle.WaitOne(2000);
+                _waitHandle.WaitOne(2000);
                 PruneBeacons();
             }
         }
@@ -95,44 +95,45 @@ namespace BeaconLib
         private void BroadcastProbe()
         {
             var probe = Beacon.Encode(BeaconType).ToArray();
-            udp.Send(probe, probe.Length, new IPEndPoint(IPAddress.Broadcast, Beacon.DiscoveryPort));
+            _udp.Send(probe, probe.Length, new IPEndPoint(IPAddress.Broadcast, Beacon.DiscoveryPort));
         }
 
         private void PruneBeacons()
         {
             var cutOff = DateTime.Now - BeaconTimeout;
-            var oldBeacons = currentBeacons.ToList();
+            var oldBeacons = _currentBeacons.ToList();
             var newBeacons = oldBeacons.Where(_ => _.LastAdvertised >= cutOff).ToList();
             if (EnumsEqual(oldBeacons, newBeacons)) return;
 
             var u = BeaconsUpdated;
-            if (u != null) u(newBeacons);
-            currentBeacons = newBeacons;
+            u?.Invoke(newBeacons);
+            _currentBeacons = newBeacons;
         }
 
         private void NewBeacon(BeaconLocation newBeacon)
         {
-            var newBeacons = currentBeacons
+            var newBeacons = _currentBeacons
                 .Where(_ => !_.Equals(newBeacon))
                 .Concat(new [] { newBeacon })
                 .OrderBy(_ => _.Data)
-                .ThenBy(_ => _.Address, IPEndPointComparer.Instance)
+                .ThenBy(_ => _.Address, IpEndPointComparer.Instance)
                 .ToList();
             var u = BeaconsUpdated;
-            if (u != null) u(newBeacons);
-            currentBeacons = newBeacons;
+            u?.Invoke(newBeacons);
+            _currentBeacons = newBeacons;
         }
 
         private static bool EnumsEqual<T>(IEnumerable<T> xs, IEnumerable<T> ys)
         {
-            return xs.Zip(ys, (x, y) => x.Equals(y)).Count() == xs.Count();
+            var enumerable = xs as IList<T> ?? xs.ToList();
+            return enumerable.Zip(ys, (x, y) => x.Equals(y)).Count() == enumerable.Count;
         }
 
         public void Stop()
         {
-            running = false;
-            waitHandle.Set();
-            thread.Join();
+            _running = false;
+            _waitHandle.Set();
+            _thread.Join();
         }
 
         public void Dispose()

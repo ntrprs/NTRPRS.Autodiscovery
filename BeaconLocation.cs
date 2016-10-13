@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Net;
 
-namespace BeaconLib
+namespace NTRPRS.Autodiscovery
 {
     /// <summary>
     /// Class that represents a discovered beacon
@@ -15,8 +15,8 @@ namespace BeaconLib
             LastAdvertised = lastAdvertised;
         }
 
-        public IPEndPoint Address { get; private set; }
-        public string Data { get; private set; }
+        public IPEndPoint Address { get; }
+        public string Data { get; }
         public DateTime LastAdvertised { get; private set; }
 
         public override string ToString()
@@ -39,7 +39,7 @@ namespace BeaconLib
 
         public override int GetHashCode()
         {
-            return (Address != null ? Address.GetHashCode() : 0);
+            return Address?.GetHashCode() ?? 0;
         }
     }
 }

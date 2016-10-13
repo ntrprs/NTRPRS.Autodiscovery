@@ -6,7 +6,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 
-namespace BeaconLib
+namespace NTRPRS.Autodiscovery
 {
     /// <summary>
     /// Instances of this class can be autodiscovered on the local network through UDP broadcasts
@@ -17,8 +17,9 @@ namespace BeaconLib
     public class Beacon : IDisposable
     {
         internal const int DiscoveryPort = 35891;
-        private readonly UdpClient udp;
-        private bool stopped;
+
+        private readonly UdpClient _udp;
+        private bool _stopped;
  
         public Beacon(string beaconType, ushort advertisedPort)
         {
@@ -26,13 +27,13 @@ namespace BeaconLib
             AdvertisedPort = advertisedPort;
             BeaconData     = "";
 
-            udp = new UdpClient();
-            udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
-            udp.Client.Bind(new IPEndPoint(IPAddress.Any, DiscoveryPort));
+            _udp = new UdpClient();
+            _udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _udp.Client.Bind(new IPEndPoint(IPAddress.Any, DiscoveryPort));
 
             try 
             {
-                udp.AllowNatTraversal(true);
+                _udp.AllowNatTraversal(true);
             }
             catch (SocketException ex)
             {
@@ -42,18 +43,18 @@ namespace BeaconLib
 
         public void Start() 
         {
-            udp.BeginReceive(ProbeReceived, null);
+            _udp.BeginReceive(ProbeReceived, null);
         }
 
         public void Stop()
         {
-            stopped = true;
+            _stopped = true;
         }
 
         private void ProbeReceived(IAsyncResult ar)
         {
             var remote = new IPEndPoint(IPAddress.Any, 0);
-            var bytes  = udp.EndReceive(ar, ref remote);
+            var bytes  = _udp.EndReceive(ar, ref remote);
 
             // Compare beacon type to probe type
             var typeBytes = Encode(BeaconType);
@@ -63,16 +64,19 @@ namespace BeaconLib
                 var responseData = Encode(BeaconType)
                     .Concat(BitConverter.GetBytes((ushort)IPAddress.HostToNetworkOrder((short)AdvertisedPort)))
                     .Concat(Encode(BeaconData)).ToArray();
-                udp.Send(responseData, responseData.Length, remote);
+                _udp.Send(responseData, responseData.Length, remote);
             }
 
-            if (!stopped) udp.BeginReceive(ProbeReceived, null);
+            if (!_stopped) _udp.BeginReceive(ProbeReceived, null);
         }
 
         internal static bool HasPrefix<T>(IEnumerable<T> haystack, IEnumerable<T> prefix)
         {
-            return haystack.Count() >= prefix.Count() &&
-                haystack.Zip(prefix, (a, b) => a.Equals(b)).All(_ => _);
+            var prefixList = prefix as IList<T> ?? prefix.ToList();
+            var haystackList = haystack as IList<T> ?? haystack.ToList();
+
+            return haystackList.Count >= prefixList.Count &&
+                haystackList.Zip(prefixList, (a, b) => a.Equals(b)).All(_ => _);
         }
 
         /// <summary>
@@ -94,7 +98,7 @@ namespace BeaconLib
             var listData = data as IList<byte> ?? data.ToList();
 
             var len = IPAddress.NetworkToHostOrder(BitConverter.ToInt16(listData.Take(2).ToArray(), 0));
-            if (listData.Count() < 2 + len) throw new ArgumentException("Too few bytes in packet");
+            if (listData.Count < 2 + len) throw new ArgumentException("Too few bytes in packet");
 
             return Encoding.UTF8.GetString(listData.Skip(2).Take(len).ToArray());
         }
@@ -102,13 +106,10 @@ namespace BeaconLib
         /// <summary>
         /// Return the machine's hostname (usually nice to mention in the beacon text)
         /// </summary>
-        public static string HostName
-        {
-            get { return Dns.GetHostName(); }
-        }
+        public static string HostName => Dns.GetHostName();
 
-        public string BeaconType { get; private set; } 
-        public ushort AdvertisedPort { get; private set; }
+        public string BeaconType { get; } 
+        public ushort AdvertisedPort { get; }
 
         public string BeaconData { get; set; }
 
