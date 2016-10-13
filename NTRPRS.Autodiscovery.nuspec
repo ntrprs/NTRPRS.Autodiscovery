@@ -14,11 +14,12 @@
 		<version>$version$</version>
 		<title>NTRPRS.Autodiscovery</title>
 		<description>Simple automatic (local) network discovery library</description>
+		<summary>Autodiscovery Library</summary>
 		<authors>Rico Huijbers, Leonard Buskin</authors>
 		<owners>Rico Huijbers, Leonard Buskin</owners>
-		<licenseUrl>https://github.com/ntrprs/ntrprs.autodiscovery/blob/master/LICENSE</licenseUrl>
-		<projectUrl>https://github.com/ntrprs/ntrprs.autodiscovery</projectUrl>
-		<iconUrl>https://github.com/ntrprs/ntrprs.autodiscovery/blob/master/Resources/nuget-icon.png</iconUrl>
+		<licenseUrl>https://github.com/ntrprs/NTRPRS.Autodiscovery/blob/master/LICENSE</licenseUrl>
+		<projectUrl>https://github.com/ntrprs/NTRPRS.Autodiscovery</projectUrl>
+		<iconUrl>https://github.com/ntrprs/NTRPRS.Autodiscovery/raw/master/Resources/nuget-icon.png</iconUrl>
 		<requireLicenseAcceptance>false</requireLicenseAcceptance>
 		<releaseNotes>Initial release.</releaseNotes>
 		<tags>Autodiscovery</tags>
